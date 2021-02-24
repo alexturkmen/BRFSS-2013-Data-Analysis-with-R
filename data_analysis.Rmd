@@ -1,0 +1,270 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `brfss2013`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("Final_Project.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+The data was collected using different sampling methods. The phone numbers for the individuals to be surveyed are selected from landline and cellular numbers.
+
+For the landline numbers, disproportionate stratified sampling is used. Stratified sampling is a random sampling method, therefore it supports that the data collected from the sample is generalizable to the population. My only reservation here is that it is disproportionate instead of proportionate.
+
+For the cellular numbers, random sampling is used. 
+
+In order to remove bias from the sample, design weighting and raking weighting was used. Removing biases is an important step in providing the 'randomness' we are looking for to provide generalizability. 
+
+There is no random assignment, therefore it is an observational study, not an experiment. 
+
+Based on all the items discussed above, we can say that the data collected will be generalizable to the entire population because random sampling is used. However, there will not be a causal relationship since there is no random assignment. 
+
+
+* * *
+
+## Part 2: Research questions
+
+**Research question 1:**
+
+What is the relation between how individuals consider their general health (ie. excellent, good, poor etc.) to be and how many days of the year they do not feel good physically and mentally?
+
+**Research question 2:**
+
+Do people without a health care insurance and personal doctor get a checkup to make sure their general health is good? What is the comparison with people who has health care and a personal doctor?
+
+**Research question 3:**
+
+Is there a relation between having a heart attack and having high blood cholesterol?
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+NOTE: Insert code chunks as needed by clicking on the "Insert a new code chunk" 
+button (green button with orange arrow) above. Make sure that your code is visible
+in the project you submit. Delete this note when before you submit your work.
+
+**Research question 1:**
+
+Ir order to answer research question 1, I will slightly modify data to remove partially completed interviews and NAs from the data. I only need completed interviews because they will give the most reliable results. 
+
+```{r}
+brfss2013 = brfss2013 %>% filter(dispcode != 'Partially completed interview')
+```
+
+Second step is create another set of data named rq1_data specific for this question. In this dataframe, I will remove the NAs in General Health, PHysical Health and Mental Health columns. Because I only need to compare the General Health condition to the number of days that individual did not feel good. NA data is not useful.
+
+```{r}
+rq1_data <- brfss2013 %>% filter(!is.na(genhlth) & !is.na(physhlth) & !is.na(menthlth))
+```
+
+Next step, I group the data by General Health column, and summarise the numeric data in Physical Health and Mental Health columns to see how individuals define General Health. 
+
+An example is, an individual may say that they are in excellent condition and they do not feel good mentally for 30 days in a year. Another individual may say they feel poorly, yet they may not feel good mentally for 10 days a year. 
+
+By summarising this data, I want to see if there's a general consistency between general health condition and the number of days individuals feel bad. 
+
+```{r}
+rq1_data %>% group_by(genhlth) %>% summarise(count = n(), median_phys = median(physhlth), 
+              median_ment = median(menthlth), 
+              mean_phys = mean(physhlth), 
+              mean_ment = mean(menthlth))
+```
+
+As seen in the table above, there is consistency between individual's answers to these 3 questions. I presume these individuals do not know each others answers yet the data shows that they define the general health fairly similar to each other, based on the their definition of general health and the number of days they do not feel good in a year.
+
+It is possible to visualize the results to get a better understanding, as below.
+
+First, I will create a table for easier visualization.
+
+
+```{r}
+rq1_tibble <- rq1_data %>% group_by(genhlth) %>% summarise(count = n(), 
+              median_phys = median(physhlth), 
+              median_ment = median(menthlth), 
+              mean_phys = mean(physhlth), 
+              mean_ment = mean(menthlth))
+```
+
+
+In the first visualization below, we can see that individuals who stated their general health condition as 'poor' has felt physically 'not good' on a higher number of days in average, compared to individuals who stated their general health condition as at least 'fair.'
+
+
+```{r}
+ggplot(data = rq1_tibble) + 
+  geom_point(mapping = aes(x = genhlth, y = mean_ment, size = mean_ment), color = 'dark blue') 
+```
+
+In the second visualization below, we can see that individuals who stated their general health condition as 'poor' has felt mentally 'not good' on a higher number of days in average, compared to individuals who stated their general health condition as at least 'fair.'
+
+```{r}
+ggplot(data = rq1_tibble) + 
+  geom_point(mapping = aes(x = genhlth, y = mean_phys, size = mean_phys), color = 'dark green') 
+```
+
+**Research question 2:**
+
+In order to answer research question 2, firstly I create 2 different data sets:
+1. Checkup summary of people who don't have a health care insurance or a personal doctor
+2. Checkup summary of people who has a health care insurance or a personal doctor
+
+
+```{r}
+no_hp_checkup_data <- brfss2013 %>% filter(hlthpln1 == 'No' & persdoc2 == 'No') %>% group_by(checkup1) %>% filter(!is.na(checkup1)) %>% summarise(count = n())
+```
+
+```{r}
+hp_checkup_data <- brfss2013 %>% filter(hlthpln1 == 'Yes' & persdoc2 == 'Yes, only one' | persdoc2 == 'More than one') %>% group_by(checkup1) %>% filter(!is.na(checkup1)) %>% summarise(count = n())
+```
+
+After creating the data sets, I visualize them as below for better understanding. 
+Please see below the bar chart for people with no health plan and a personal doctor.
+
+```{r}
+ggplot(data = no_hp_checkup_data, aes(x = reorder(checkup1, -count), y = count)) + geom_bar(stat = 'identity', width = 0.65, color = 'blue', fill = 'light blue') + geom_text(aes(label = count), vjust=1.6, size=3.5, color = 'dark blue')
+
+```
+
+Please see below the bar chart for people with who has a health plan and a personal doctor.
+
+```{r}
+ggplot(data = hp_checkup_data, aes(x = reorder(checkup1, -count), y = count)) + geom_bar(stat = 'identity', width = 0.65, color = 'dark green', fill = 'light green') + geom_text(aes(label = count), vjust=-0.3, size=3.5, color = 'dark green')
+
+```
+
+In order to compare people who has a health care plan and a personal doctor with people who has none, I will calculate the ratio amongst each group who had a check up within past year.
+
+
+```{r}
+no_hp_ratio <- round(no_hp_checkup_data$count[[1]] / sum(no_hp_checkup_data$count), 2)
+```
+
+
+```{r}
+hp_ratio <- round(hp_checkup_data$count[[1]] / sum(hp_checkup_data$count), 2)
+```
+
+no_hp_ratio represents the percentage of people who had a check up within the past year amongst people without a health care plan and a personal doctor.
+
+hp_ratio represents the percentage of people who had a check up within the past year amongst people who has a health care plan and a personal doctor. 
+
+hp_ratio is a strong 82% while no_hp_ratio is only 25%. 
+
+```{r}
+at_least_5_year_no_hp_ratio <- round(no_hp_checkup_data$count[[4]] / sum(no_hp_checkup_data$count), 2)
+```
+
+Furthermore, 34% of the people who are without a health care plan and a personal doctor had their last checkup 5 or more years ago.
+
+
+We can conclude that people without a health insurance and a personal doctor are less likely to get an annual check up.
+
+
+**Research question 3:**
+
+In order to answer research question 3, I will make a list of people who has high blood cholesterol and was diagnosed with heart attack. 
+
+First, I create a data frame which includes the number of people who was diagnosed with heart attack. 
+
+```{r}
+heart_attack_df <- brfss2013 %>% filter(!is.na(cvdinfr4)) %>% group_by(cvdinfr4) %>% summarise(count = n())
+
+```
+
+
+
+Then I filter the people who had a heart attack and group them by whether they were diagnosed with high blood cholesterol or not.
+
+```{r}
+blood_cho_heart_attack_df <- brfss2013 %>% filter(cvdinfr4 == 'Yes' & !is.na(bloodcho)) %>% group_by(bloodcho) %>% summarise(count = n())
+
+```
+
+Then I calculate the ratio:
+
+```{r}
+heart_attack_blood_cho_ratio <- round(blood_cho_heart_attack_df$count[[1]] / heart_attack_df$count[[1]], 2)
+
+```
+
+
+heart_attack_blood_cho_ratio represents the percentage of people who was diagnosed with high blood cholesterol amongst people who had a heart attack. 
+
+Please see a visualization below for better understanding.
+
+
+```{r}
+
+blood_cho_heart_attack_df <- blood_cho_heart_attack_df %>% 
+  arrange(desc(bloodcho)) %>%
+  mutate(prop = count / sum(blood_cho_heart_attack_df$count) *100) %>%
+  mutate(ypos = cumsum(prop)- 0.75*prop )
+
+
+ggplot(blood_cho_heart_attack_df, aes(x="", y=prop, fill=bloodcho)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) + theme_void() + theme(legend.position="none") + 
+  geom_text(aes(y = ypos, label = bloodcho), color = "white", size=5)
+   
+
+```
+
+
+```{r}
+blood_cho_df <- brfss2013 %>% group_by(bloodcho) %>% summarise(count = n())
+blood_cho_ratio <- round(blood_cho_df$count[[1]] / sum(blood_cho_df$count), 2)
+
+```
+
+
+blood_ch_ratio represents the percentage of people who was diagnosed with high blood cholesterol amongst all the people surveyed.
+
+96% of people who had a heart attack was diagnosed with high blood cholesterol before, and based on this data I conclude that it seems very likely there is a positive relation between having high blood cholesterol and having a heart attack. 
+
+However, 87% of all the people surveyed have said they were diagnosed with high blood cholesterol before, therefore, to come to more accurate conclusion further investigation may be necessary.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
